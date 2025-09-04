@@ -8,16 +8,24 @@ type RiskResp = {
   top_contributors: {name:string; weight:number}[];
 };
 
+type ActionsResp = {
+  actions: { title: string; explanation: string }[];
+  source?: string;
+};
+
 export default function Home() {
   const [risk, setRisk] = useState<RiskResp|null>(null);
   const [forecast, setForecast] = useState<number[]>([]);
+  const [actions, setActions] = useState<ActionsResp["actions"]>([]);
 
   useEffect(() => {
     (async () => {
       const r = await fetch("/api/risk").then(res=>res.json());
       const f = await fetch("/api/forecast").then(res=>res.json());
+      const a = await fetch("/api/actions").then(res=>res.json()).catch(()=>({actions:[]}));
       setRisk(r);
       setForecast(f.forecast || []);
+      setActions(a.actions || []);
     })();
   }, []);
 
@@ -118,19 +126,16 @@ export default function Home() {
 
         <section className="rounded-3xl p-6 bg-white/70 dark:bg-neutral-900/60 border border-black/10 dark:border-white/10 shadow-sm backdrop-blur">
           <div className="text-sm text-gray-500 mb-2">Actions</div>
-          <div className="flex flex-wrap gap-3">
-            <button className="px-4 py-2 rounded-xl bg-black text-white hover:opacity-90">
-              Start 3‑min breathing
-            </button>
-            <button className="px-4 py-2 rounded-xl border border-black/10 dark:border-white/10 bg-gray-50 dark:bg-neutral-800">
-              10‑min walk reminder
-            </button>
-            <button className="px-4 py-2 rounded-xl border border-black/10 dark:border-white/10 bg-gray-50 dark:bg-neutral-800">
-              Block focus hour
-            </button>
-            <button className="px-4 py-2 rounded-xl border border-black/10 dark:border-white/10 bg-gray-50 dark:bg-neutral-800">
-              Reschedule meeting
-            </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {actions.map((act, i)=> (
+              <div key={i} className="rounded-2xl p-4 bg-gray-50 dark:bg-neutral-800 border border-black/10 dark:border-white/10">
+                <div className="font-semibold">{act.title}</div>
+                <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">{act.explanation}</div>
+              </div>
+            ))}
+            {actions.length === 0 && (
+              <div className="text-sm text-gray-500">No suggestions available.</div>
+            )}
           </div>
         </section>
       </div>
