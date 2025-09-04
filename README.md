@@ -1,7 +1,6 @@
 # 🔥 PreBurn: Predict Burnout Before It Hits
 
-> **“Your sleep app, your calendar, and your heart rate don’t talk.  
-> PreBurn connects them to forecast burnout risk and tell you what to do—before you crash.”**
+> ** Forecast burnout risk and tell you what to do—before you crash.”**
 
 ---
 
@@ -52,7 +51,13 @@ Instead of just showing numbers, it provides **personalized, preventive nudges**
 ---
 
 ## Setup
+
 Clone the repo:
 ```bash
-git clone https://github.com/yourusername/preburn.git
+git clone https://github.com/ibrahimaswe/Preburn-PANW-Hackathon.git
 cd preburn
+
+
+
+
+
