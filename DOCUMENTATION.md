@@ -1,19 +1,19 @@
 # PreBurn Technical Documentation
 
 ## Overview
-PreBurn forecasts short‑term burnout risk and provides targeted actions to reduce it. The system combines a Python backend for risk modeling with a Next.js frontend for an interactive, privacy‑aware experience.
+PreBurn forecasts short‑term burnout risk and provides targeted actions to reduce it. The system combines a Python backend for risk modeling with Next.js frontend for an interactive, privacy‑aware experience.
 
 ## Technical Stack
-- Frontend: Next.js (App Router), TypeScript, Tailwind CSS
-- Backend: FastAPI (Python)
+- Frontend: Next.js, TypeScript, Tailwind CSS
+- Backend: FastAPI 
 - Modeling: Lightweight in‑repo ML with optional Prophet forecasting; rule‑based fallbacks
 - Data: CSV sample in `data/merged_burnout_schema_sample.csv` (daily grain)
-- Dev/Build: Node 20+, Python 3.9+, uvicorn, Next.js dev server with rewrite proxy
+- Dev/Build: Node 20+, Python 3.9+, uvicorn, Next.js dev server 
 
 ## Architecture
 - Frontend calls `/api/*` which rewrites to the Python API via `next.config.ts`:
   - `source: /api/:path*` → `destination: http://127.0.0.1:8000/:path*`
-- FastAPI serves risk, forecast, history, and actions endpoints.
+- FastAPI serves risk, forecast, history, and actions endpoints
 - Feature engineering and risk scoring live under `backend/models/*`.
 
 ### Backend Endpoints
@@ -22,7 +22,7 @@ PreBurn forecasts short‑term burnout risk and provides targeted actions to red
 - `GET /history`: daily history with risk and key metrics
 - `POST /ingest`: replace dataset (re-trains lightweight model)
 - `GET /actions`:
-  - Today (no `day`): uses LLM if configured; otherwise rules; ~3 concise actions
+  - Today (no `day`): uses LLM if configured; otherwise rules; ~3 concise actions for main scenarios
   - Future days: `GET /actions?day=N` (+1..+3) returns 1–2 varied, day‑specific actions via rules to avoid repetition
 
 ### Frontend UX
@@ -45,7 +45,7 @@ PreBurn forecasts short‑term burnout risk and provides targeted actions to red
    - Sample CSV only; no external user data. `.gitignore` excludes env/venv. History cleaned to remove a leaked env file.
 
 ## Data & Features (MVP)
-- Inputs: sleep hours, resting HR, HRV (RMSSD), steps, sentiment, meeting load
+- Inputs: sleep hours, resting HR(heart rate), HRV (RMSSD), steps, sentiment, meeting load
 - Engineered: rolling z‑scores, sleep debt, workload index
 - Outputs:
   - `risk_score` ∈ [0,1]
