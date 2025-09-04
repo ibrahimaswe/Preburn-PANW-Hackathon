@@ -1,4 +1,4 @@
-# 🔥 PreBurn: Predict Burnout Before It Hits
+# PreBurn: Predict Burnout Before It Hits
 
 >  Forecast burnout risk and tell you what to do—before you crash.
 
