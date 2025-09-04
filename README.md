@@ -5,13 +5,13 @@
 
 ---
 
-## 🚀 Overview
+## Overview
 PreBurn is a **Personal Health & Wellness Aggregator** that unifies **sleep, activity, biometrics, journaling sentiment, and workload data** into a single daily risk score.  
 Instead of just showing numbers, it provides **personalized, preventive nudges** that reduce burnout risk and keep you in balance.
 
 ---
 
-## ✨ Features
+## Features
 - **Risk Gauge** → Daily burnout risk (Low / Medium / High).  
 - **Why Now Chips** → Top 2–3 contributors (e.g., “Sleep debt ↑”, “After-hours meetings”, “Sentiment ↓”).  
 - **Personalized Nudges** → One-tap actions like a breathing exercise, short walk, or meeting reschedule suggestion.  
