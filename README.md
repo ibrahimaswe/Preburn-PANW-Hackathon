@@ -1,6 +1,6 @@
 # 🔥 PreBurn: Predict Burnout Before It Hits
 
-> ** Forecast burnout risk and tell you what to do—before you crash.”**
+>  Forecast burnout risk and tell you what to do—before you crash.
 
 ---
 
@@ -56,7 +56,14 @@ Clone the repo:
 ```bash
 git clone https://github.com/ibrahimaswe/Preburn-PANW-Hackathon.git
 cd preburn
-
+```
+Frontend:
+```bash 
+npm install
+```
+Backend:
+```bash 
+uvicorn main:app --reload 
 
 
 
