@@ -17,6 +17,9 @@ export default function Home() {
   const [risk, setRisk] = useState<RiskResp|null>(null);
   const [forecast, setForecast] = useState<number[]>([]);
   const [actions, setActions] = useState<ActionsResp["actions"]>([]);
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [loadingActions, setLoadingActions] = useState(false);
+  const [actionsError, setActionsError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -113,19 +116,40 @@ export default function Home() {
           <div className="text-sm text-gray-500 mb-3">3-Day Forecast</div>
           <div className="grid grid-cols-3 gap-3">
             {forecast.map((v,i)=>(
-              <div
+              <button
                 key={i}
-                className="rounded-2xl p-4 text-center bg-gray-50 dark:bg-neutral-800 border border-black/10 dark:border-white/10"
+                onClick={async ()=>{
+                  setSelectedDay(i+1);
+                  setLoadingActions(true);
+                  setActionsError(null);
+                  try {
+                    const res = await fetch(`/api/actions?day=${i+1}`);
+                    const a: ActionsResp = await res.json();
+                    setActions(a.actions || []);
+                  } catch (e) {
+                    setActions([]);
+                    setActionsError("Could not load actions.");
+                  } finally {
+                    setLoadingActions(false);
+                  }
+                }}
+                className={`rounded-2xl p-4 text-center bg-gray-50 dark:bg-neutral-800 border border-black/10 dark:border-white/10 transition ring-0 ${selectedDay===i+1?"outline outline-2 outline-sky-400": "hover:bg-gray-100 dark:hover:bg-neutral-700"}`}
               >
                 <div className="text-xl font-semibold">{(v*100).toFixed(0)}%</div>
                 <div className="text-gray-500 text-xs">+{i+1}d</div>
-              </div>
+              </button>
             ))}
           </div>
         </section>
 
         <section className="rounded-3xl p-6 bg-white/70 dark:bg-neutral-900/60 border border-black/10 dark:border-white/10 shadow-sm backdrop-blur">
           <div className="text-sm text-gray-500 mb-2">Actions</div>
+          {loadingActions && (
+            <div className="text-sm text-gray-500">Loading actions…</div>
+          )}
+          {actionsError && (
+            <div className="text-sm text-red-600">{actionsError}</div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {actions.map((act, i)=> (
               <div key={i} className="rounded-2xl p-4 bg-gray-50 dark:bg-neutral-800 border border-black/10 dark:border-white/10">

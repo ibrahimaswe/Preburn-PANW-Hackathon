@@ -154,18 +154,79 @@ def _fallback_actions(today: Dict, score: float, level: str, contribs: List[Dict
             )
         })
 
-    # Ensure at least three items
-    if not actions:
-        actions = [
-            {"title": "3‑min paced breathing", "explanation": "Quick autonomic reset to reduce stress reactivity."},
-            {"title": "10‑min outdoor walk", "explanation": "Light movement to lift mood and restore focus."},
-            {"title": "Block a 45‑min focus hour", "explanation": "Lower workload by eliminating context switching."},
-        ]
+    # Ensure at least three items (pad with sensible defaults if needed)
+    defaults = [
+        {"title": "3‑min paced breathing", "explanation": "Quick autonomic reset to reduce stress reactivity."},
+        {"title": "10‑min outdoor walk", "explanation": "Light movement to lift mood and restore focus."},
+        {"title": "Block a 45‑min focus hour", "explanation": "Lower workload by eliminating context switching."},
+    ]
+    if len(actions) < 3:
+        have = {a["title"] for a in actions}
+        for d in defaults:
+            if d["title"] not in have:
+                actions.append(d)
+            if len(actions) >= 3:
+                break
     return actions[:3]
 
 
+def _day_specific_actions(day: int, today: Dict, target_score: float, contribs: List[Dict]) -> List[Dict]:
+    """Return 1–2 day‑specific actions that differ across days.
+    Uses simple category rotation to ensure variety.
+    """
+    # Action templates (kept concise and practical)
+    catalog: Dict[str, Dict[str, str]] = {
+        "breathing": {
+            "title": "3‑min paced breathing",
+            "explanation": "Reset autonomic balance to lower stress reactivity before the day."
+        },
+        "walk": {
+            "title": "10‑min outdoor walk",
+            "explanation": "Light movement to lift mood and restore focus between tasks."
+        },
+        "focus_block": {
+            "title": "Block a 45‑min focus hour",
+            "explanation": "Reduce context switches to lower mental load and perceived workload."
+        },
+        "bedtime": {
+            "title": "Advance bedtime by 30 minutes",
+            "explanation": "Bank extra sleep to improve recovery and next‑day resilience."
+        },
+        "caffeine_cutoff": {
+            "title": "No caffeine after 2pm",
+            "explanation": "Protect tonight’s sleep depth and HRV for better recovery."
+        },
+        "micro_recovery": {
+            "title": "Schedule a 15‑min micro‑recovery",
+            "explanation": "Short break (stretching or quiet time) to downshift arousal later today."
+        },
+    }
+
+    # Map day → categories to ensure variety
+    day_idx = max(1, min(3, int(day)))
+    if day_idx == 1:
+        order = ["breathing", "walk", "focus_block"]
+    elif day_idx == 2:
+        order = ["focus_block", "bedtime", "walk"]
+    else:
+        order = ["caffeine_cutoff", "micro_recovery", "breathing"]
+
+    # Risk‑aware count: fewer if risk is low
+    num = 1 if float(target_score) < 0.3 else 2
+    picked: List[Dict] = []
+    seen = set()
+    for key in order:
+        if key in seen:
+            continue
+        picked.append(catalog[key])
+        seen.add(key)
+        if len(picked) >= num:
+            break
+    return picked
+
+
 @app.get("/actions")
-def get_actions(source: str = "auto", diag: bool = False):
+def get_actions(source: str = "auto", diag: bool = False, day: int = 0):
     """
     Return recommended actions with explanations. Uses OpenAI.
     otherwise falls back to rule-based reasoning from model contributors.
@@ -173,7 +234,7 @@ def get_actions(source: str = "auto", diag: bool = False):
     dfd = compute_features(df)
     today_row = dfd.iloc[-1]
 
-    # Derive score, level, and contributors similar to /risk
+    # Derive score, level, and contributors similar to /risk (today context)
     ml_score = predict_risk(ml_model, ml_features, today_row)
     if ml_score is not None:
         score = float(np.clip(ml_score, 0, 1))
@@ -182,21 +243,45 @@ def get_actions(source: str = "auto", diag: bool = False):
     else:
         score, level, contribs = risk_row(today_row.to_dict())
 
+    # If a future day is requested, use forecast to set target score/level
+    target_score = score
+    target_level = level
+    if isinstance(day, int) and day > 0:
+        # Build history and forecast next 3 days
+        hist_scores: List[float] = []
+        for _, r in dfd.iterrows():
+            ml_s = predict_risk(ml_model, ml_features, r)
+            if ml_s is None:
+                s, _, _ = risk_row(r.to_dict())
+                hist_scores.append(s)
+            else:
+                hist_scores.append(ml_s)
+        history = pd.DataFrame({"date": dfd["date"], "risk_score": hist_scores})
+        fc = prophet_forecast_from_history(history, days=3)
+        if fc is None:
+            fc = forecast(dfd)
+        idx = max(1, min(3, int(day))) - 1
+        if isinstance(fc, list) and len(fc) > idx:
+            target_score = float(np.clip(fc[idx], 0, 1))
+            target_level = risk_level(target_score)
+
     # Choose generation source: prefer LLM, then fallback to rules
     diagnostics: Dict = {
         "has_api_key": bool(os.environ.get("OPENAI_API_KEY")),
         "openai_imported": OpenAI is not None,
     }
-    want_llm = source.lower() in ("auto", "llm")
+    want_llm = source.lower() in ("auto", "llm") and not (isinstance(day, int) and day > 0)
     if want_llm:
         api_key = os.environ.get("OPENAI_API_KEY")
         if api_key and OpenAI is not None:
             try:
                 client = OpenAI(api_key=api_key)
+                for_day = f" for +{int(day)}d" if isinstance(day, int) and day > 0 else ""
                 prompt = (
-                    "Given today's burnout risk context, propose 3 short, practical actions with a one‑sentence explanation each.\n"
-                    f"Risk level: {level} (score {round(score,3)}). Top contributors: {_summarize_contributors(contribs)}.\n"
-                    "Consider physiology (HRV, resting HR), workload, sleep debt, mood.\n"
+                    "Given today's context, propose concise, practical actions with a one‑sentence explanation each.\n"
+                    f"Target{for_day} risk level: {target_level} (score {round(target_score,3)}). Today's top contributors: {_summarize_contributors(contribs)}.\n"
+                    "For +Nd horizons, generate ONLY 1–2 actions and ensure they differ from other days' suggestions (no repeated titles).\n"
+                    "Consider physiology (HRV, resting HR), workload, sleep debt, and mood.\n"
                     "Return strict JSON with key 'actions' as a list of {title, explanation}."
                 )
                 resp = client.chat.completions.create(
@@ -222,7 +307,14 @@ def get_actions(source: str = "auto", diag: bool = False):
 
     if source.lower() == "llm":
         # Explicit LLM requested but unavailable
-        return {"actions": _fallback_actions(today_row.to_dict(), score, level, contribs), "source": "rules", **({"diagnostics": diagnostics} if diag else {})}
+        if isinstance(day, int) and day > 0:
+            acts = _day_specific_actions(day, today_row.to_dict(), target_score, contribs)
+        else:
+            acts = _fallback_actions(today_row.to_dict(), score, level, contribs)
+        return {"actions": acts, "source": "rules", **({"diagnostics": diagnostics} if diag else {})}
 
-    actions = _fallback_actions(today_row.to_dict(), score, level, contribs)
+    if isinstance(day, int) and day > 0:
+        actions = _day_specific_actions(day, today_row.to_dict(), target_score, contribs)
+    else:
+        actions = _fallback_actions(today_row.to_dict(), target_score, target_level, contribs)
     return {"actions": actions, "source": "rules", **({"diagnostics": diagnostics} if diag else {})}
